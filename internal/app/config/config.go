@@ -22,6 +22,6 @@ func Load() {
 
 	err := envconfig.Process("APP", &Root)
 	if err != nil {
-		log.Fatal()
+		log.Fatalf("config: %v", err)
 	}
 }

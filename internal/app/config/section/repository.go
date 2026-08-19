@@ -13,6 +13,6 @@ type (
 		Password     string        `required:"true"`
 		Name         string        `required:"true"`
 		ReadTimeout  time.Duration `split_words:"true" default:"30s"`
-		WriteTimeout time.Duration `split_words:"true" default:"30"`
+		WriteTimeout time.Duration `split_words:"true" default:"30s"`
 	}
 )
