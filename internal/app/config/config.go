@@ -18,9 +18,13 @@ type Config struct {
 var Root Config
 
 func Load() {
-	_ = godotenv.Load()
+	err := godotenv.Load()
 
-	err := envconfig.Process("APP", &Root)
+	if err != nil {
+		log.Println("Не удалось загрузить файл")
+	}
+
+	err = envconfig.Process("APP", &Root)
 	if err != nil {
 		log.Fatalf("config: %v", err)
 	}
