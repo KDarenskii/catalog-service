@@ -19,7 +19,6 @@ var Root Config
 
 func Load() {
 	err := godotenv.Load()
-
 	if err != nil {
 		log.Println("Не удалось загрузить файл")
 	}
