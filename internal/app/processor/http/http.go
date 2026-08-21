@@ -11,12 +11,12 @@ import (
 	rhandler "github.com/KDarenskii/catalog-service/internal/app/handler/http"
 )
 
-type HttpProc struct {
+type httpProc struct {
 	server http.Server
 	addr   string
 }
 
-func NewHTTP(hHealth rhandler.Health, cfg section.ProcessorWebServer) *HttpProc {
+func NewHTTP(hHealth rhandler.Health, cfg section.ProcessorWebServer) *httpProc {
 	r := mux.NewRouter()
 
 	r.NotFoundHandler = http.HandlerFunc(handlerNotFound)
@@ -27,7 +27,7 @@ func NewHTTP(hHealth rhandler.Health, cfg section.ProcessorWebServer) *HttpProc 
 		path, _ := route.GetPathTemplate()
 		methods, _ := route.GetMethods()
 
-		if len([]rune(path)) == 0 {
+		if path == "" || len(methods) == 0 {
 			return nil
 		}
 
@@ -36,14 +36,14 @@ func NewHTTP(hHealth rhandler.Health, cfg section.ProcessorWebServer) *HttpProc 
 		return nil
 	})
 
-	p := HttpProc{addr: fmt.Sprintf(":%d", cfg.ListenPort)}
+	p := httpProc{addr: fmt.Sprintf(":%d", cfg.ListenPort)}
 	p.server.Addr = p.addr
 	p.server.Handler = r
 
 	return &p
 }
 
-func (p *HttpProc) Serve() error {
+func (p *httpProc) Serve() error {
 	log.Printf("Starting HTTP server on %s", p.addr)
 	return p.server.ListenAndServe()
 }

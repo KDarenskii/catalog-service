@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/KDarenskii/catalog-service/internal/app/config"
@@ -14,6 +15,8 @@ func main() {
 	cfg := config.Root
 
 	hHealth := rhealth.NewHandler()
+
+	fmt.Println(123)
 
 	httpServer := rprocessor.NewHTTP(hHealth, cfg.Processor.WebServer)
 
