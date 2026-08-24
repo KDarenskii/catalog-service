@@ -3,11 +3,12 @@ package pproduct
 import (
 	"context"
 
+	"github.com/gofrs/uuid"
+	"github.com/uptrace/bun"
+
 	"github.com/KDarenskii/catalog-service/internal/app/entity"
 	"github.com/KDarenskii/catalog-service/internal/app/repository"
 	rcpostgres "github.com/KDarenskii/catalog-service/internal/app/repository/conn/postgres"
-	"github.com/gofrs/uuid"
-	"github.com/uptrace/bun"
 )
 
 type (

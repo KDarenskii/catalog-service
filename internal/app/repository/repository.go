@@ -3,8 +3,9 @@ package repository
 import (
 	"context"
 
-	"github.com/KDarenskii/catalog-service/internal/app/entity"
 	"github.com/gofrs/uuid"
+
+	"github.com/KDarenskii/catalog-service/internal/app/entity"
 )
 
 type (

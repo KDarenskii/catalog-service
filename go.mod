@@ -8,6 +8,7 @@ require (
 )
 
 require (
+	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/gorilla/mux v1.8.1
 	github.com/uptrace/bun v1.2.18
 	github.com/uptrace/bun/dialect/pgdialect v1.2.18
@@ -16,7 +17,6 @@ require (
 
 require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/gofrs/uuid v4.4.0+incompatible // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/puzpuzpuz/xsync/v3 v3.5.1 // indirect
 	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc // indirect
