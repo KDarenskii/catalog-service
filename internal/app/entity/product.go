@@ -16,7 +16,6 @@ type Product struct {
 	Description  *string   `bun:"description"`
 	Price        int64     `bun:"price,notnull"`
 	CategoryGUID uuid.UUID `bun:"category_guid"`
-	Category     *Category `bun:"rel:belongs-to,join:category_guid=guid"`
 	CreatedAt    time.Time `bun:"created_at,notnull"`
 	UpdatedAt    time.Time `bun:"updated_at,notnull"`
 }
