@@ -101,9 +101,15 @@ func (s *srv) Update(ctx context.Context, guid uuid.UUID, req entity.RequestProd
 		product.CategoryGUID = req.CategoryGUID
 	}
 
+	if req.Description != nil {
+		product.Description = req.Description
+	}
+
+	if req.Price != 0 {
+		product.Price = req.Price
+	}
+
 	product.UpdatedAt = time.Now()
-	product.Description = req.Description
-	product.Price = req.Price
 
 	if err := s.repoProduct.Update(ctx, product); err != nil {
 		return entity.Product{}, err

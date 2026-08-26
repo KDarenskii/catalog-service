@@ -47,7 +47,7 @@ type RequestProductUpdate struct {
 }
 
 func (r RequestProductUpdate) Validate() error {
-	if r.Price <= 0 {
+	if r.Price < 0 {
 		return ErrIncorrectParameters
 	}
 
