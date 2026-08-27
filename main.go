@@ -5,9 +5,15 @@ import (
 	"log"
 
 	"github.com/KDarenskii/catalog-service/internal/app/config"
+	hcategory "github.com/KDarenskii/catalog-service/internal/app/handler/http/category"
 	rhealth "github.com/KDarenskii/catalog-service/internal/app/handler/http/health"
+	hproduct "github.com/KDarenskii/catalog-service/internal/app/handler/http/product"
 	rprocessor "github.com/KDarenskii/catalog-service/internal/app/processor/http"
+	pcategory "github.com/KDarenskii/catalog-service/internal/app/repository/category"
 	rcpostgres "github.com/KDarenskii/catalog-service/internal/app/repository/conn/postgres"
+	pproduct "github.com/KDarenskii/catalog-service/internal/app/repository/product"
+	scategory "github.com/KDarenskii/catalog-service/internal/app/service/category"
+	sproduct "github.com/KDarenskii/catalog-service/internal/app/service/product"
 )
 
 func main() {
@@ -34,9 +40,17 @@ func main() {
 		log.Printf("Database is up to date version=%d", newVer)
 	}
 
-	hHealth := rhealth.NewHandler()
+	categoryRepo := pcategory.NewRepoFromPostgres(pgClient)
+	productRepo := pproduct.NewRepoFromPostgres(pgClient)
 
-	httpServer := rprocessor.NewHTTP(hHealth, cfg.Processor.WebServer)
+	categorySvc := scategory.NewService(categoryRepo, productRepo)
+	productSvc := sproduct.NewService(productRepo, categoryRepo)
+
+	hHealth := rhealth.NewHandler()
+	hCategory := hcategory.NewHandler(categorySvc)
+	hProduct := hproduct.NewHandler(productSvc)
+
+	httpServer := rprocessor.NewHTTP(hHealth, hCategory, hProduct, cfg.Processor.WebServer)
 
 	if err := httpServer.Serve(); err != nil {
 		log.Fatalf("HTTP server failed: %v", err)
