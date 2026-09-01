@@ -22,13 +22,13 @@ func (h *handler) Create(w http.ResponseWriter, r *http.Request) {
 	var req entity.RequestProductCreate
 
 	if err := binding.ScanAndValidateJSON(r, &req); err != nil {
-		httph.HandleError(w, err)
+		httph.HandleError(w, r, err)
 		return
 	}
 
 	product, err := h.srv.Create(r.Context(), req)
 	if err != nil {
-		httph.HandleError(w, err)
+		httph.HandleError(w, r, err)
 		return
 	}
 
@@ -47,20 +47,20 @@ func (h *handler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *handler) Update(w http.ResponseWriter, r *http.Request) {
 	guid, err := httph.ParseUUIDParam(r, "guid")
 	if err != nil {
-		httph.HandleError(w, err)
+		httph.HandleError(w, r, err)
 		return
 	}
 
 	var req entity.RequestProductUpdate
 
 	if err := binding.ScanAndValidateJSON(r, &req); err != nil {
-		httph.HandleError(w, err)
+		httph.HandleError(w, r, err)
 		return
 	}
 
 	product, err := h.srv.Update(r.Context(), guid, req)
 	if err != nil {
-		httph.HandleError(w, err)
+		httph.HandleError(w, r, err)
 		return
 	}
 
@@ -80,13 +80,13 @@ func (h *handler) Update(w http.ResponseWriter, r *http.Request) {
 func (h *handler) Delete(w http.ResponseWriter, r *http.Request) {
 	guid, err := httph.ParseUUIDParam(r, "guid")
 	if err != nil {
-		httph.HandleError(w, err)
+		httph.HandleError(w, r, err)
 		return
 	}
 
 	err = h.srv.Delete(r.Context(), guid)
 	if err != nil {
-		httph.HandleError(w, err)
+		httph.HandleError(w, r, err)
 		return
 	}
 
@@ -97,13 +97,13 @@ func (h *handler) List(w http.ResponseWriter, r *http.Request) {
 	var req entity.RequestProductList
 
 	if err := binding.ScanAndValidateJSON(r, &req); err != nil {
-		httph.HandleError(w, err)
+		httph.HandleError(w, r, err)
 		return
 	}
 
 	products, err := h.srv.List(r.Context(), req)
 	if err != nil {
-		httph.HandleError(w, err)
+		httph.HandleError(w, r, err)
 		return
 	}
 

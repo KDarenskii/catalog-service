@@ -29,15 +29,21 @@ func SendEmpty(w http.ResponseWriter, status int) {
 func sendError(w http.ResponseWriter, status int, err error) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+	_ = json.NewEncoder(w).Encode(map[string]string{"error.go": err.Error()})
 }
 
-func HandleError(w http.ResponseWriter, err error) {
+func HandleError(w http.ResponseWriter, r *http.Request, err error) {
+	ErrorApply(r, err)
+
 	var hc httpCoder
 	if errors.As(err, &hc) {
-		sendError(w, hc.HTTPStatus(), hc)
+		status := hc.HTTPStatus()
+		ErrorApplyStatusCode(r, status)
+		sendError(w, status, hc)
 		return
 	}
+
+	ErrorApplyStatusCode(r, http.StatusInternalServerError)
 	sendError(w, http.StatusInternalServerError, err)
 }
 
