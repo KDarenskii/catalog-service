@@ -60,7 +60,7 @@ func (s *srv) Update(ctx context.Context, guid uuid.UUID, req entity.RequestCate
 
 	category := categories[0]
 
-	if req.Name != category.Name {
+	if req.Name != "" && req.Name != category.Name {
 		existingCategories, err := s.repoCategory.List(ctx, &req.Name)
 		if err != nil {
 			return entity.Category{}, err
@@ -94,7 +94,7 @@ func (s *srv) Delete(ctx context.Context, guid uuid.UUID) error {
 		return entity.ErrNotFound
 	}
 
-	products, err := s.repoProduct.List(ctx, nil, &guid)
+	products, err := s.repoProduct.List(ctx, nil, &guid, nil, nil)
 	if err != nil {
 		return err
 	}
