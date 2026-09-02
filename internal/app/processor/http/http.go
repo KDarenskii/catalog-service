@@ -2,13 +2,16 @@ package rprocessor
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/rs/zerolog/log"
 
 	"github.com/KDarenskii/catalog-service/internal/app/config/section"
 	rhandler "github.com/KDarenskii/catalog-service/internal/app/handler/http"
+	"github.com/KDarenskii/catalog-service/internal/app/util"
+	"github.com/KDarenskii/catalog-service/internal/pkg/http/httph"
+	"github.com/KDarenskii/catalog-service/internal/pkg/http/mzerolog"
 )
 
 type httpProc struct {
@@ -26,6 +29,8 @@ func NewHTTP(
 
 	r.NotFoundHandler = http.HandlerFunc(handlerNotFound)
 
+	r.Use(httph.NewErrorMiddleware(), mzerolog.NewMiddleware(mzerolog.WithSkipper(util.IsFilteredHttpRoute)))
+
 	vGenericRegHealthCheck(r, hHealth)
 
 	rV1 := r.PathPrefix("/v1").Subrouter()
@@ -41,7 +46,7 @@ func NewHTTP(
 			return nil
 		}
 
-		log.Printf("%v %s", methods, path)
+		log.Info().Strs("method", methods).Str("path", path).Msg("Registered http route")
 
 		return nil
 	})
@@ -54,6 +59,6 @@ func NewHTTP(
 }
 
 func (p *httpProc) Serve() error {
-	log.Printf("Starting HTTP server on %s", p.addr)
+	log.Info().Str("server_address", p.addr).Msg("Started HTTP server")
 	return p.server.ListenAndServe()
 }
