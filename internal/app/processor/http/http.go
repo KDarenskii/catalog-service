@@ -1,14 +1,19 @@
 package rprocessor
 
 import (
+	"context"
 	"fmt"
+	"net"
 	"net/http"
+	"sync"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
 
 	"github.com/KDarenskii/catalog-service/internal/app/config/section"
 	rhandler "github.com/KDarenskii/catalog-service/internal/app/handler/http"
+	"github.com/KDarenskii/catalog-service/internal/app/processor"
 	"github.com/KDarenskii/catalog-service/internal/app/util"
 	"github.com/KDarenskii/catalog-service/internal/pkg/http/httph"
 	"github.com/KDarenskii/catalog-service/internal/pkg/http/mzerolog"
@@ -24,7 +29,7 @@ func NewHTTP(
 	hCategory rhandler.Category,
 	hProduct rhandler.Product,
 	cfg section.ProcessorWebServer,
-) *httpProc {
+) processor.Processor {
 	r := mux.NewRouter()
 
 	r.NotFoundHandler = http.HandlerFunc(handlerNotFound)
@@ -52,13 +57,28 @@ func NewHTTP(
 	})
 
 	p := httpProc{addr: fmt.Sprintf(":%d", cfg.ListenPort)}
-	p.server.Addr = p.addr
 	p.server.Handler = r
 
 	return &p
 }
 
-func (p *httpProc) Serve() error {
-	log.Info().Str("server_address", p.addr).Msg("Started HTTP server")
-	return p.server.ListenAndServe()
+func (p *httpProc) StartAsync(ctx context.Context, wg *sync.WaitGroup) {
+	var lc net.ListenConfig
+
+	l, err := lc.Listen(ctx, "tcp", p.addr)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to start http server")
+	}
+
+	log.Info().Str("address", p.addr).Str("network", "TCP").Msg("Started http server")
+
+	go p.serve(l)
+
+	processor.WatchForShutdown(ctx, wg, processor.CloserFunc(l.Close))
+
+	processor.WatchForShutdown(ctx, wg, processor.NewCloserContextFunc(p.server.Shutdown, ctx, 5*time.Second))
+}
+
+func (p *httpProc) serve(l net.Listener) {
+	_ = p.server.Serve(l)
 }
