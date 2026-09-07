@@ -16,8 +16,12 @@ help: ## Показать справку
 # Разработка
 # =============================================================================
 .PHONY: run
-run: ## Запустить приложение
-	go run ${GO_FILE}
+run: ## Запустить web-server
+	go run ${GO_FILE} --no-json web-server
+
+.PHONY: migrate
+migrate: ## Запустить миграции
+	go run ${GO_FILE} --no-json migrate
 
 .PHONY: build
 build: ## Сборка приложения
@@ -37,6 +41,13 @@ lint: ## Запуск линтера
 .PHONY: lint-fix
 lint-fix: ## Запуск линтера с автофиксом
 	go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v${GO_LINT_VERSION} run --fix
+
+# =============================================================================
+# Кодогенерация
+# =============================================================================
+.PHONY: generate-mocks
+generate-mocks: ## Сгенерировать моки (mockery)
+	go run github.com/vektra/mockery/v2@latest
 
 # =============================================================================
 # Окружение (Docker)
