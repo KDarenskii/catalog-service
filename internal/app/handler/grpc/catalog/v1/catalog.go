@@ -24,16 +24,16 @@ func NewHandler(srv service.Product) catalogv1.CatalogServiceServer {
 func (h *handler) GetProduct(ctx context.Context, req *catalogv1.GetProductRequest) (*catalogv1.GetProductResponse, error) {
 	guid, err := uuid.FromString(req.GetGuid())
 	if err != nil {
-		return &catalogv1.GetProductResponse{}, mapper.ErrorToGRPC(entity.ErrIncorrectParameters)
+		return nil, mapper.ErrorToGRPC(entity.ErrIncorrectParameters)
 	}
 
 	products, err := h.srv.GetByGUIDs(ctx, []uuid.UUID{guid})
 	if err != nil {
-		return &catalogv1.GetProductResponse{}, mapper.ErrorToGRPC(err)
+		return nil, mapper.ErrorToGRPC(err)
 	}
 
 	if len(products) == 0 {
-		return &catalogv1.GetProductResponse{}, mapper.ErrorToGRPC(entity.ErrNotFound)
+		return nil, mapper.ErrorToGRPC(entity.ErrNotFound)
 	}
 
 	return &catalogv1.GetProductResponse{Product: mcatv1.ProductToProto(products[0])}, nil
@@ -43,17 +43,17 @@ func (h *handler) GetProducts(ctx context.Context, req *catalogv1.GetProductsReq
 	rawGuids := req.GetGuids()
 
 	if len(rawGuids) == 0 {
-		return &catalogv1.GetProductsResponse{}, nil
+		return nil, nil
 	}
 
 	guids, err := mcatv1.GUIDsFromStrings(rawGuids)
 	if err != nil {
-		return &catalogv1.GetProductsResponse{}, mapper.ErrorToGRPC(err)
+		return nil, mapper.ErrorToGRPC(entity.ErrIncorrectParameters)
 	}
 
 	products, err := h.srv.GetByGUIDs(ctx, guids)
 	if err != nil {
-		return &catalogv1.GetProductsResponse{}, mapper.ErrorToGRPC(err)
+		return nil, mapper.ErrorToGRPC(err)
 	}
 
 	protoProducts := make([]*catalogv1.Product, len(products))
