@@ -49,6 +49,10 @@ lint-fix: ## Запуск линтера с автофиксом
 generate-mocks: ## Сгенерировать моки (mockery)
 	go run github.com/vektra/mockery/v2@latest
 
+.PHONY: generate-proto
+generate-proto: ## Сгенерировать Go-код из .proto (buf)
+	buf generate
+
 # =============================================================================
 # Окружение (Docker)
 # =============================================================================

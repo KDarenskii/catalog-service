@@ -13,11 +13,14 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/KDarenskii/catalog-service/internal/app/config"
+	ghcatalogv1 "github.com/KDarenskii/catalog-service/internal/app/handler/grpc/catalog/v1"
 	rhandler "github.com/KDarenskii/catalog-service/internal/app/handler/http"
 	hcategory "github.com/KDarenskii/catalog-service/internal/app/handler/http/category"
 	rhealth "github.com/KDarenskii/catalog-service/internal/app/handler/http/health"
 	hproduct "github.com/KDarenskii/catalog-service/internal/app/handler/http/product"
 	"github.com/KDarenskii/catalog-service/internal/app/processor"
+	pgateway "github.com/KDarenskii/catalog-service/internal/app/processor/gateway"
+	pgrpc "github.com/KDarenskii/catalog-service/internal/app/processor/grpc"
 	rprocessor "github.com/KDarenskii/catalog-service/internal/app/processor/http"
 	pprocessor "github.com/KDarenskii/catalog-service/internal/app/processor/other"
 	"github.com/KDarenskii/catalog-service/internal/app/repository"
@@ -27,24 +30,26 @@ import (
 	"github.com/KDarenskii/catalog-service/internal/app/service"
 	scategory "github.com/KDarenskii/catalog-service/internal/app/service/category"
 	sproduct "github.com/KDarenskii/catalog-service/internal/app/service/product"
+	catalogv1 "github.com/KDarenskii/catalog-service/internal/pkg/grpc/gen/catalog/v1"
 )
 
 type Builder struct {
-	cCtx            *cli.Context
-	ctx             context.Context
-	wg              sync.WaitGroup
-	err             error
-	cfg             config.Config
-	chErrors        chan error
-	connPostgres    *rcpostgres.Client
-	processors      []processor.Processor
-	categoryRepo    repository.Category
-	productRepo     repository.Product
-	categoryService service.Category
-	productService  service.Product
-	healthHandler   rhandler.Health
-	categoryHandler rhandler.Category
-	productHandler  rhandler.Product
+	cCtx             *cli.Context
+	ctx              context.Context
+	wg               sync.WaitGroup
+	err              error
+	cfg              config.Config
+	chErrors         chan error
+	connPostgres     *rcpostgres.Client
+	processors       []processor.Processor
+	categoryRepo     repository.Category
+	productRepo      repository.Product
+	categoryService  service.Category
+	productService   service.Product
+	healthHandler    rhandler.Health
+	categoryHandler  rhandler.Category
+	productHandler   rhandler.Product
+	catalogV1Handler catalogv1.CatalogServiceServer
 }
 
 func NewBuilder(cCtx *cli.Context) *Builder {
@@ -171,6 +176,12 @@ func (b *Builder) BuildHandlerHttpProduct() {
 	}, b.productService)
 }
 
+func (b *Builder) BuildHandlerGrpcCatalogV1() {
+	b.exec(func(b *Builder) {
+		b.catalogV1Handler = ghcatalogv1.NewHandler(b.productService)
+	}, b.productService)
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 ///// PROCESSORS ///////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -180,6 +191,20 @@ func (b *Builder) BuildProcHttp() {
 		proc := rprocessor.NewHTTP(b.healthHandler, b.categoryHandler, b.productHandler, b.cfg.Processor.WebServer)
 		b.processors = append(b.processors, proc)
 	}, b.healthHandler)
+}
+
+func (b *Builder) BuildProcGrpc() {
+	b.exec(func(b *Builder) {
+		proc := pgrpc.NewGRPC(b.catalogV1Handler, b.cfg.Processor.Grpc)
+		b.processors = append(b.processors, proc)
+	}, b.catalogV1Handler)
+}
+
+func (b *Builder) BuildProcGateway() {
+	b.exec(func(b *Builder) {
+		proc := pgateway.NewGateway(b.cfg.Processor.Gateway, b.cfg.Processor.Grpc)
+		b.processors = append(b.processors, proc)
+	})
 }
 
 ////////////////////////////////////////////////////////////////////////////////
