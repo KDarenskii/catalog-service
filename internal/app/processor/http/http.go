@@ -28,13 +28,18 @@ func NewHTTP(
 	hHealth rhandler.Health,
 	hCategory rhandler.Category,
 	hProduct rhandler.Product,
+	middlewares []httph.Middleware,
 	cfg section.ProcessorWebServer,
 ) processor.Processor {
 	r := mux.NewRouter()
 
 	r.NotFoundHandler = http.HandlerFunc(handlerNotFound)
 
-	r.Use(httph.NewErrorMiddleware(), mzerolog.NewMiddleware(mzerolog.WithSkipper(util.IsFilteredHttpRoute)))
+	r.Use(middlewaresToGorilla(middlewares)...)
+
+	r.Use(
+		httph.NewErrorMiddleware(), mzerolog.NewMiddleware(mzerolog.WithSkipper(util.IsFilteredHttpRoute)),
+	)
 
 	vGenericRegHealthCheck(r, hHealth)
 
@@ -43,18 +48,20 @@ func NewHTTP(
 	v1RegCategoryHandler(rV1, hCategory)
 	v1RegProductHandler(rV1, hProduct)
 
-	_ = r.Walk(func(route *mux.Route, _ *mux.Router, _ []*mux.Route) error {
-		path, _ := route.GetPathTemplate()
-		methods, _ := route.GetMethods()
+	_ = r.Walk(
+		func(route *mux.Route, _ *mux.Router, _ []*mux.Route) error {
+			path, _ := route.GetPathTemplate()
+			methods, _ := route.GetMethods()
 
-		if path == "" || len(methods) == 0 {
+			if path == "" || len(methods) == 0 {
+				return nil
+			}
+
+			log.Info().Strs("method", methods).Str("path", path).Msg("Registered http route")
+
 			return nil
-		}
-
-		log.Info().Strs("method", methods).Str("path", path).Msg("Registered http route")
-
-		return nil
-	})
+		},
+	)
 
 	p := httpProc{addr: fmt.Sprintf(":%d", cfg.ListenPort)}
 	p.server.Handler = r
@@ -76,7 +83,9 @@ func (p *httpProc) StartAsync(ctx context.Context, wg *sync.WaitGroup) {
 
 	processor.WatchForShutdown(ctx, wg, processor.CloserFunc(l.Close))
 
-	processor.WatchForShutdown(ctx, wg, processor.NewCloserContextFunc(p.server.Shutdown, context.Background(), 5*time.Second))
+	processor.WatchForShutdown(
+		ctx, wg, processor.NewCloserContextFunc(p.server.Shutdown, context.Background(), 5*time.Second),
+	)
 }
 
 func (p *httpProc) serve(l net.Listener) {
