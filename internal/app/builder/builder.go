@@ -3,6 +3,7 @@ package builder
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"reflect"
@@ -11,8 +12,10 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 
 	"github.com/KDarenskii/catalog-service/internal/app/config"
+	"github.com/KDarenskii/catalog-service/internal/app/constant"
 	ghcatalogv1 "github.com/KDarenskii/catalog-service/internal/app/handler/grpc/catalog/v1"
 	rhandler "github.com/KDarenskii/catalog-service/internal/app/handler/http"
 	hcategory "github.com/KDarenskii/catalog-service/internal/app/handler/http/category"
@@ -22,6 +25,7 @@ import (
 	pgateway "github.com/KDarenskii/catalog-service/internal/app/processor/gateway"
 	pgrpc "github.com/KDarenskii/catalog-service/internal/app/processor/grpc"
 	rprocessor "github.com/KDarenskii/catalog-service/internal/app/processor/http"
+	pmonitor "github.com/KDarenskii/catalog-service/internal/app/processor/monitor"
 	pprocessor "github.com/KDarenskii/catalog-service/internal/app/processor/other"
 	"github.com/KDarenskii/catalog-service/internal/app/repository"
 	pcategory "github.com/KDarenskii/catalog-service/internal/app/repository/category"
@@ -30,7 +34,9 @@ import (
 	"github.com/KDarenskii/catalog-service/internal/app/service"
 	scategory "github.com/KDarenskii/catalog-service/internal/app/service/category"
 	sproduct "github.com/KDarenskii/catalog-service/internal/app/service/product"
+	"github.com/KDarenskii/catalog-service/internal/app/util"
 	catalogv1 "github.com/KDarenskii/catalog-service/internal/pkg/grpc/gen/catalog/v1"
+	"github.com/KDarenskii/catalog-service/internal/pkg/http/httph"
 )
 
 type Builder struct {
@@ -50,6 +56,7 @@ type Builder struct {
 	categoryHandler  rhandler.Category
 	productHandler   rhandler.Product
 	catalogV1Handler catalogv1.CatalogServiceServer
+	middlewares      []httph.Middleware
 }
 
 func NewBuilder(cCtx *cli.Context) *Builder {
@@ -76,9 +83,11 @@ func NewBuilder(cCtx *cli.Context) *Builder {
 }
 
 func (b *Builder) BuildConfig() {
-	b.exec(func(b *Builder) {
-		b.buildConfig()
-	})
+	b.exec(
+		func(b *Builder) {
+			b.buildConfig()
+		},
+	)
 }
 
 func (b *Builder) Run() {
@@ -107,15 +116,17 @@ func (b *Builder) Run() {
 ////////////////////////////////////////////////////////////////////////////////
 
 func (b *Builder) BuildRepoConnPostgres() {
-	b.exec(func(b *Builder) {
-		pgClient, err := rcpostgres.NewClient(b.ctx, b.cfg.Repository.Postgres)
-		if err != nil {
-			b.err = err
-			return
-		}
+	b.exec(
+		func(b *Builder) {
+			pgClient, err := rcpostgres.NewClient(b.ctx, b.cfg.Repository.Postgres)
+			if err != nil {
+				b.err = err
+				return
+			}
 
-		b.connPostgres = pgClient
-	})
+			b.connPostgres = pgClient
+		},
+	)
 }
 
 func (b *Builder) BuildRepoConnMigrator() {
@@ -123,9 +134,11 @@ func (b *Builder) BuildRepoConnMigrator() {
 		return
 	}
 
-	b.exec(func(b *Builder) {
-		b.processors = append(b.processors, pprocessor.NewMigrator(b.connPostgres))
-	})
+	b.exec(
+		func(b *Builder) {
+			b.processors = append(b.processors, pprocessor.NewMigrator(b.connPostgres))
+		},
+	)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -133,15 +146,19 @@ func (b *Builder) BuildRepoConnMigrator() {
 ////////////////////////////////////////////////////////////////////////////////
 
 func (b *Builder) BuildRepoCategory() {
-	b.exec(func(b *Builder) {
-		b.categoryRepo = pcategory.NewRepoFromPostgres(b.connPostgres)
-	}, b.connPostgres)
+	b.exec(
+		func(b *Builder) {
+			b.categoryRepo = pcategory.NewRepoFromPostgres(b.connPostgres)
+		}, b.connPostgres,
+	)
 }
 
 func (b *Builder) BuildRepoProduct() {
-	b.exec(func(b *Builder) {
-		b.productRepo = pproduct.NewRepoFromPostgres(b.connPostgres)
-	}, b.connPostgres)
+	b.exec(
+		func(b *Builder) {
+			b.productRepo = pproduct.NewRepoFromPostgres(b.connPostgres)
+		}, b.connPostgres,
+	)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -149,15 +166,19 @@ func (b *Builder) BuildRepoProduct() {
 ////////////////////////////////////////////////////////////////////////////////
 
 func (b *Builder) BuildServiceCategory() {
-	b.exec(func(b *Builder) {
-		b.categoryService = scategory.NewService(b.categoryRepo, b.productRepo)
-	}, b.categoryRepo, b.productRepo)
+	b.exec(
+		func(b *Builder) {
+			b.categoryService = scategory.NewService(b.categoryRepo, b.productRepo)
+		}, b.categoryRepo, b.productRepo,
+	)
 }
 
 func (b *Builder) BuildServiceProduct() {
-	b.exec(func(b *Builder) {
-		b.productService = sproduct.NewService(b.productRepo, b.categoryRepo)
-	}, b.productRepo, b.categoryRepo)
+	b.exec(
+		func(b *Builder) {
+			b.productService = sproduct.NewService(b.productRepo, b.categoryRepo)
+		}, b.productRepo, b.categoryRepo,
+	)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -165,21 +186,27 @@ func (b *Builder) BuildServiceProduct() {
 ////////////////////////////////////////////////////////////////////////////////
 
 func (b *Builder) BuildHandlerHttpCategory() {
-	b.exec(func(b *Builder) {
-		b.categoryHandler = hcategory.NewHandler(b.categoryService)
-	}, b.categoryService)
+	b.exec(
+		func(b *Builder) {
+			b.categoryHandler = hcategory.NewHandler(b.categoryService)
+		}, b.categoryService,
+	)
 }
 
 func (b *Builder) BuildHandlerHttpProduct() {
-	b.exec(func(b *Builder) {
-		b.productHandler = hproduct.NewHandler(b.productService)
-	}, b.productService)
+	b.exec(
+		func(b *Builder) {
+			b.productHandler = hproduct.NewHandler(b.productService)
+		}, b.productService,
+	)
 }
 
 func (b *Builder) BuildHandlerGrpcCatalogV1() {
-	b.exec(func(b *Builder) {
-		b.catalogV1Handler = ghcatalogv1.NewHandler(b.productService)
-	}, b.productService)
+	b.exec(
+		func(b *Builder) {
+			b.catalogV1Handler = ghcatalogv1.NewHandler(b.productService)
+		}, b.productService,
+	)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -187,24 +214,69 @@ func (b *Builder) BuildHandlerGrpcCatalogV1() {
 ////////////////////////////////////////////////////////////////////////////////
 
 func (b *Builder) BuildProcHttp() {
-	b.exec(func(b *Builder) {
-		proc := rprocessor.NewHTTP(b.healthHandler, b.categoryHandler, b.productHandler, b.cfg.Processor.WebServer)
-		b.processors = append(b.processors, proc)
-	}, b.healthHandler)
+	b.exec(
+		func(b *Builder) {
+			proc := rprocessor.NewHTTP(
+				b.healthHandler, b.categoryHandler, b.productHandler,
+				b.middlewares, b.cfg.Processor.WebServer,
+			)
+			b.processors = append(b.processors, proc)
+		}, b.healthHandler,
+	)
 }
 
 func (b *Builder) BuildProcGrpc() {
-	b.exec(func(b *Builder) {
-		proc := pgrpc.NewGRPC(b.catalogV1Handler, b.cfg.Processor.Grpc)
-		b.processors = append(b.processors, proc)
-	}, b.catalogV1Handler)
+	b.exec(
+		func(b *Builder) {
+			proc := pgrpc.NewGRPC(b.catalogV1Handler, b.cfg.Processor.Grpc)
+			b.processors = append(b.processors, proc)
+		}, b.catalogV1Handler,
+	)
 }
 
 func (b *Builder) BuildProcGateway() {
-	b.exec(func(b *Builder) {
-		proc := pgateway.NewGateway(b.cfg.Processor.Gateway, b.cfg.Processor.Grpc)
-		b.processors = append(b.processors, proc)
-	})
+	b.exec(
+		func(b *Builder) {
+			proc := pgateway.NewGateway(b.cfg.Processor.Gateway, b.cfg.Processor.Grpc)
+			b.processors = append(b.processors, proc)
+		},
+	)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+///// MONITOR ///////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+func (b *Builder) BuildMonitorOpenTelemetry() {
+	cfg := b.cfg.Monitor.OpenTelemetry
+
+	if !cfg.Enabled {
+		log.Warn().Msg("OpenTelemetry is disabled by config")
+		return
+	}
+
+	b.exec(
+		func(b *Builder) {
+			proc, err := pmonitor.NewOpenTelemetryController(b.ctx, b.cfg.Monitor.Environment, cfg)
+			if err != nil {
+				b.err = fmt.Errorf("init OpenTelemetry: %w", err)
+				return
+			}
+
+			b.processors = append(b.processors, proc)
+
+			b.middlewares = append(
+				b.middlewares, otelmux.Middleware(
+					constant.AppName,
+					otelmux.WithFilter(
+						func(r *http.Request) bool {
+							return !util.IsFilteredHttpRoute(r)
+						},
+					),
+				),
+			)
+		},
+	)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -212,10 +284,12 @@ func (b *Builder) BuildProcGateway() {
 ////////////////////////////////////////////////////////////////////////////////
 
 func (b *Builder) buildConfig() {
-	config.Load(config.LoadArgs{
-		Output:          b.cCtx.App.Writer,
-		EnableSimpleLog: b.cCtx.Bool("no-json"),
-	})
+	config.Load(
+		config.LoadArgs{
+			Output:          b.cCtx.App.Writer,
+			EnableSimpleLog: b.cCtx.Bool("no-json"),
+		},
+	)
 
 	b.cfg = config.Root
 }
