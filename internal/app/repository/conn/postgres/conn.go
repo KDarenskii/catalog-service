@@ -12,6 +12,7 @@ import (
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
 	"github.com/uptrace/bun/driver/pgdriver"
+	"github.com/uptrace/bun/extra/bunotel"
 	"github.com/uptrace/bun/migrate"
 
 	"github.com/KDarenskii/catalog-service/internal/app/config/section"
@@ -52,13 +53,24 @@ func NewClient(ctx context.Context, cfg section.RepositoryPostgres) (*Client, er
 		Str("write_timeout", cfg.WriteTimeout.String()).
 		Msg("Initializing PostgreSQL connection")
 
-	sqlDB := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn),
-		pgdriver.WithReadTimeout(cfg.ReadTimeout),
-		pgdriver.WithWriteTimeout(cfg.WriteTimeout)))
+	sqlDB := sql.OpenDB(
+		pgdriver.NewConnector(
+			pgdriver.WithDSN(dsn),
+			pgdriver.WithReadTimeout(cfg.ReadTimeout),
+			pgdriver.WithWriteTimeout(cfg.WriteTimeout),
+		),
+	)
 
 	sqlDB.SetMaxOpenConns(10)
 
 	bunDB := bun.NewDB(sqlDB, pgdialect.New(), bun.WithDiscardUnknownColumns())
+
+	bunDB.AddQueryHook(
+		bunotel.NewQueryHook(
+			bunotel.WithDBName(cfg.Name),
+			bunotel.WithFormattedQueries(true),
+		),
+	)
 
 	pingCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 
@@ -75,7 +87,7 @@ func NewClient(ctx context.Context, cfg section.RepositoryPostgres) (*Client, er
 	return &Client{
 		rawBunDB: bunDB,
 		cfg:      cfg,
-		_bunDB:   newTxInjector(bunDB),
+		_bunDB:   newTxInjector(bunDB, sqlDB),
 	}, nil
 }
 
